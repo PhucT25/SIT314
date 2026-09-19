@@ -1,0 +1,12 @@
+{
+  "name": "@luminascale/ingestion",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@aws-sdk/client-sqs": "^3.883.0",
+    "@luminascale/core": "0.1.0",
+    "mqtt": "^5.14.1"
+  }
+}
+

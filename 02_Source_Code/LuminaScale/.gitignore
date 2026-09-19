@@ -1,0 +1,9 @@
+node_modules/
+.env
+coverage/
+*.log
+.terraform/
+*.tfstate
+*.tfstate.*
+.DS_Store
+

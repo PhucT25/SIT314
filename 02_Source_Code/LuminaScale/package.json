@@ -1,0 +1,23 @@
+{
+  "name": "luminascale",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "services/*",
+    "simulator"
+  ],
+  "scripts": {
+    "test": "node --test packages/core/test/*.test.js",
+    "check": "node --check services/ingestion/src/index.js && node --check services/processor/src/index.js && node --check services/api/src/index.js && node --check simulator/src/index.js && node --check simulator/src/load.js",
+    "compose:config": "docker compose config",
+    "up": "docker compose up --build",
+    "down": "docker compose down",
+    "load": "npm --workspace @luminascale/simulator run load"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
+

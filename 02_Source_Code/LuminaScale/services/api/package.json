@@ -1,0 +1,15 @@
+{
+  "name": "@luminascale/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@aws-sdk/client-iot-data-plane": "^3.883.0",
+    "@luminascale/core": "0.1.0",
+    "express": "^5.1.0",
+    "mongodb": "^6.19.0",
+    "mqtt": "^5.14.1",
+    "pg": "^8.16.3"
+  }
+}
+

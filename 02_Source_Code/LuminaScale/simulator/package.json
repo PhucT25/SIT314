@@ -1,0 +1,15 @@
+{
+  "name": "@luminascale/simulator",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "load": "node src/load.js"
+  },
+  "dependencies": {
+    "@luminascale/core": "0.1.0",
+    "mqtt": "^5.14.1"
+  }
+}
+

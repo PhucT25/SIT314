@@ -1,0 +1,169 @@
+name: luminascale
+
+x-node-service: &node-service
+  build:
+    context: .
+    dockerfile: docker/node-service.Dockerfile
+  restart: unless-stopped
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./config/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto-data:/mosquitto/data
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -h localhost -t '$$SYS/broker/version' -C 1 -W 3 >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  elasticmq:
+    image: softwaremill/elasticmq-native:1.6.15
+    ports:
+      - "9324:9324"
+      - "9325:9325"
+    volumes:
+      - ./config/elasticmq.conf:/opt/elasticmq.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - 'http://127.0.0.1:9324/?Action=ListQueues&Version=2012-11-05' >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  mongo:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-luminascale}
+      POSTGRES_USER: ${POSTGRES_USER:-luminascale}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-luminascale}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./config/postgres/init.sql:/docker-entrypoint-initdb.d/001-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  ingestion:
+    <<: *node-service
+    build:
+      context: .
+      dockerfile: docker/node-service.Dockerfile
+      args: { SERVICE: ingestion }
+    environment:
+      MQTT_URL: mqtt://mosquitto:1883
+      SQS_ENDPOINT: http://elasticmq:9324
+      SQS_QUEUE_URL: http://elasticmq:9324/000000000000/luminascale-events
+      AWS_REGION: ap-southeast-2
+    depends_on:
+      mosquitto: { condition: service_healthy }
+      elasticmq: { condition: service_healthy }
+
+  processor:
+    <<: *node-service
+    build:
+      context: .
+      dockerfile: docker/node-service.Dockerfile
+      args: { SERVICE: processor }
+    environment:
+      MQTT_URL: mqtt://mosquitto:1883
+      SQS_ENDPOINT: http://elasticmq:9324
+      SQS_QUEUE_URL: http://elasticmq:9324/000000000000/luminascale-events
+      AWS_REGION: ap-southeast-2
+      MONGO_URL: mongodb://mongo:27017
+      MONGO_DATABASE: ${MONGO_DATABASE:-luminascale}
+      POSTGRES_URL: postgresql://${POSTGRES_USER:-luminascale}:${POSTGRES_PASSWORD:-luminascale}@postgres:5432/${POSTGRES_DB:-luminascale}
+      LUX_WINDOW: 5
+    depends_on:
+      elasticmq: { condition: service_healthy }
+      mongo: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+      mosquitto: { condition: service_healthy }
+
+  api:
+    <<: *node-service
+    build:
+      context: .
+      dockerfile: docker/node-service.Dockerfile
+      args: { SERVICE: api }
+    environment:
+      PORT: 3000
+      API_KEY: ${API_KEY:-local-demo-key}
+      MQTT_URL: mqtt://mosquitto:1883
+      MONGO_URL: mongodb://mongo:27017
+      MONGO_DATABASE: ${MONGO_DATABASE:-luminascale}
+      POSTGRES_URL: postgresql://${POSTGRES_USER:-luminascale}:${POSTGRES_PASSWORD:-luminascale}@postgres:5432/${POSTGRES_DB:-luminascale}
+    ports:
+      - "3000:3000"
+    depends_on:
+      mongo: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+      mosquitto: { condition: service_healthy }
+
+  node-red:
+    image: nodered/node-red:4.0
+    environment:
+      SIM_APARTMENTS_PER_BUILDING: 20
+      NODE_RED_CREDENTIAL_SECRET: ${NODE_RED_CREDENTIAL_SECRET:-local-development-only}
+    ports:
+      - "1880:1880"
+    volumes:
+      - ./node-red/flows.json:/data/flows.json:ro
+      - ./node-red/settings.js:/data/settings.js:ro
+    depends_on:
+      mosquitto: { condition: service_healthy }
+
+  simulator:
+    <<: *node-service
+    profiles: ["synthetic"]
+    build:
+      context: .
+      dockerfile: docker/node-service.Dockerfile
+      args: { SERVICE: simulator }
+    command: ["node", "simulator/src/index.js"]
+    environment:
+      MQTT_URL: mqtt://mosquitto:1883
+      SIM_BUILDINGS: 1
+      SIM_APARTMENTS_PER_BUILDING: 100
+      SIM_INTERVAL_MS: 2000
+    depends_on:
+      mosquitto: { condition: service_healthy }
+
+  load-generator:
+    <<: *node-service
+    profiles: ["load"]
+    build:
+      context: .
+      dockerfile: docker/node-service.Dockerfile
+      args: { SERVICE: simulator }
+    command: ["node", "simulator/src/load.js"]
+    environment:
+      MQTT_URL: mqtt://mosquitto:1883
+      LOAD_EVENTS_PER_MINUTE: ${LOAD_EVENTS_PER_MINUTE:-20000}
+      LOAD_DURATION_SECONDS: ${LOAD_DURATION_SECONDS:-120}
+      LOAD_APARTMENTS: ${LOAD_APARTMENTS:-1000}
+    depends_on:
+      mosquitto: { condition: service_healthy }
+
+volumes:
+  mosquitto-data:
+  mongo-data:
+  postgres-data:

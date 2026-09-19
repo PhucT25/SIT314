@@ -1,0 +1,17 @@
+{
+  "name": "@luminascale/processor",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@aws-sdk/client-ecr": "^3.883.0",
+    "@aws-sdk/client-ecs": "^3.883.0",
+    "@aws-sdk/client-iot-data-plane": "^3.883.0",
+    "@aws-sdk/client-sqs": "^3.883.0",
+    "@aws-sdk/client-sts": "^3.883.0",
+    "@luminascale/core": "0.1.0",
+    "mongodb": "^6.19.0",
+    "mqtt": "^5.14.1",
+    "pg": "^8.16.3"
+  }
+}
