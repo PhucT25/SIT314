@@ -31,9 +31,6 @@ The Academy profile uses the pre-created `LabRole`, an outbound-only security gr
 
 The backlog-per-task target tracking policy increased desired capacity from one to four workers. The queue subsequently drained to zero, confirming that the service recovered from the burst.
 
-## Cost guardrail
-
-The lab showed `$0.30` used before deployment. This profile runs only small Fargate tasks plus low-volume SQS and CloudWatch usage. It creates no load balancer, NAT Gateway, RDS instance or DocumentDB cluster. Scale-in cooldown is three minutes and the service returns toward its one-task minimum after the test.
 
 ## Verification timeline
 
